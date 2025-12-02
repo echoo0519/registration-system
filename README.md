@@ -1,6 +1,4 @@
-# todolist
-
-## 系统框架性描述 —— 可直接给 Copilot 的完整说明
+# 系统框架性描述 —— 可直接给 Copilot 的完整说明
 1. 技术栈（必须一致）
    后端：
 
@@ -36,9 +34,14 @@
 
 三端登录（patient / doctor / admin）
 
-数据库严格分角色结构
+## 项目环境要求
 
-## 实现效果
+- JDK 21
+- PostgreSQL 18
+- Spring Boot 4.0.0
+- Maven 4.0.0
+
+# 实现效果
 
 > 最后希望实现的效果，在这里我稍微阐述下我的想法：（我觉得我们应该照着靶子射箭，也就是
 我们应该先设想自己想要做出来的效果。阐述一下，然后对照相应的地方做相应的功能以及模块的划分
@@ -64,7 +67,7 @@
 
 CREATE TYPE gender_enum AS ENUM ('male', 'female');
 
-patient_user
+patient_user // 患者
 
 ```sql
 id SERIAL PRIMARY KEY,
@@ -76,10 +79,11 @@ age INT,
 gender gender_enum NOT NULL
 ```
 
-doctor_user
+doctor_user // 医生
 
 ```sql
 id SERIAL PRIMARY KEY,
+doctor_id VARCHAR(10) UNIQUE NOT NULL,
 name VARCHAR(100) NOT NULL,
 password VARCHAR(255) NOT NULL,
 age INT,
@@ -87,22 +91,23 @@ gender gender_enum NOT NULL,
 title VARCHAR(100),
 ```
 
-department
+department // 部门
 
 ```sql
 id SERIAL PRIMARY KEY,
 department_name VARCHAR(100) NOT NULL,
 ```
 
-admin_user
+admin_user // 管理员
 
 ```sql
 id SERIAL PRIMARY KEY,
+
 password VARCHAR(255) NOT NULL,
 ```
 
 为了详细时间这一块，我们应该将写一个时间槽，方便后续扩展
-time_slot
+time_slot // 时间槽
 
 ```sql
 CREATE TYPE time_slot AS ENUM (
@@ -111,32 +116,32 @@ CREATE TYPE time_slot AS ENUM (
 );
 ```
 
-patient_doctor_registration
+patient_doctor_registration // 病人-医生-挂号时间表
 
 ```sql
 id SERIAL PRIMARY KEY,
 patient_user_id INT REFERENCES patient_user(id),
 doctor_user_id INT REFERENCES doctor_user(id),
 department_id INT REFERENCES department(id),
-weekday INT NOT NULL,
+weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 5)
 timeslot time_slot NOT NULL,
 registration_time TIMESTAMP NOT NULL DEFAULT NOW(),
 status VARCHAR(20) NOT NULL // PENDING/SUCCESS/CANCELLED/FINISHED
 ```
 
-doctor_department_schedule
+doctor_department_schedule // 医生-科室-排班表
 
 ```sql
 id SERIAL PRIMARY KEY,
 doctor_user_id INT REFERENCES doctor_user(id),
 department_id INT REFERENCES department(id),
-weekday INT NOT NULL,          -- 1=周一 ... 5=周五
+weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 5)
 timeslot time_slot NOT NULL,
 
 UNIQUE (doctor_user_id, weekday, timeslot)
 ```
 
-doctor_department
+doctor_department // 医生-科室表
 
 ```sql
 id SERIAL PRIMARY KEY,
@@ -145,8 +150,30 @@ department_id INT REFERENCES department(id),
 UNIQUE (doctor_user_id, department_id)
 ```
 
-通过AI的提示，我认为我们再增加一个doctor_department_schedule就可以顺利的实现这个功能，排班的time我们可以
-设置为枚举类型，周一到周五，上午1-4，下午1-4，就相当于5x8的这么一个时间设置。
-
 ![ER图](./resources/img/ER图-test.png)
 请大家为我补充
+
+# 项目结构
+
+为了方便程序的开发管理，我们项目目录结构如下：
+
+```cmd
+├── src
+│         ├── main
+│         │         ├── java
+│         │         │         └── com
+│         │         │             └── hospital
+│         │         │                 └── ouc
+│         │         │                     └── registrationsystem
+│         │         │                         ├── config
+│         │         │                         ├── domain
+│         │         │                         │         ├── entity // 实体类，和数据库表一一对应
+│         │         │                         │         ├── enums
+│         │         │                         │         ├── repository
+│         │         │                         │         └── service
+│         │         │                         ├── RegistrationSystemApplication.java // 启动类
+│         │         │                         ├── security
+│         │         │                         └── web
+│         │         └── resources
+│                   └── application.properties
+```
