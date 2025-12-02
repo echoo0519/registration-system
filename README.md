@@ -65,49 +65,62 @@
 
 那么我们就需要有如下的一些数据库设计：
 
-CREATE TYPE gender_enum AS ENUM ('male', 'female');
+--- 
 
-patient_user // 患者
-
-```sql
-id SERIAL PRIMARY KEY,
-id_card VARCHAR(18) UNIQUE NOT NULL,
-name VARCHAR(100) NOT NULL,
-password VARCHAR(255) NOT NULL,
-phone_number VARCHAR(15) NOT NULL UNIQUE,
-age INT,
-gender gender_enum NOT NULL
-```
-
-doctor_user // 医生
+统一的用户表
 
 ```sql
-id SERIAL PRIMARY KEY,
-doctor_id VARCHAR(10) UNIQUE NOT NULL,
-name VARCHAR(100) NOT NULL,
-password VARCHAR(255) NOT NULL,
-age INT,
-gender gender_enum NOT NULL,
-title VARCHAR(100),
+CREATE TABLE app_user (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(20) NOT NULL,     -- 'PATIENT' / 'DOCTOR' / 'ADMIN'
+    created_at TIMESTAMP DEFAULT NOW()
+);
 ```
 
-department // 部门
+患者档案
 
 ```sql
-id SERIAL PRIMARY KEY,
-department_name VARCHAR(100) NOT NULL,
+CREATE TABLE patient_profile (
+    id SERIAL PRIMARY KEY,
+    user_id INT UNIQUE NOT NULL REFERENCES app_user(id),
+
+    id_card VARCHAR(18) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    phone_number VARCHAR(15) NOT NULL UNIQUE,
+    age INT,
+    gender gender_enum NOT NULL
+);
 ```
 
-admin_user // 管理员
+医生档案
 
 ```sql
-id SERIAL PRIMARY KEY,
+CREATE TABLE doctor_profile (
+    id SERIAL PRIMARY KEY,
+    user_id INT UNIQUE NOT NULL REFERENCES app_user(id),
 
-password VARCHAR(255) NOT NULL,
+    doctor_id VARCHAR(10) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    age INT,
+    gender gender_enum NOT NULL,
+    title VARCHAR(100),
+
+    department_id INT REFERENCES department(id)
+);
 ```
 
-为了详细时间这一块，我们应该将写一个时间槽，方便后续扩展
-time_slot // 时间槽
+科室表
+
+```sql
+CREATE TABLE department (
+    id SERIAL PRIMARY KEY,
+    department_name VARCHAR(100) NOT NULL
+);
+```
+
+时间槽
 
 ```sql
 CREATE TYPE time_slot AS ENUM (
@@ -116,39 +129,53 @@ CREATE TYPE time_slot AS ENUM (
 );
 ```
 
-patient_doctor_registration // 病人-医生-挂号时间表
+挂号表
 
 ```sql
-id SERIAL PRIMARY KEY,
-patient_user_id INT REFERENCES patient_user(id),
-doctor_user_id INT REFERENCES doctor_user(id),
-department_id INT REFERENCES department(id),
-weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 5)
-timeslot time_slot NOT NULL,
-registration_time TIMESTAMP NOT NULL DEFAULT NOW(),
-status VARCHAR(20) NOT NULL // PENDING/SUCCESS/CANCELLED/FINISHED
+CREATE TABLE patient_doctor_registration (
+    id SERIAL PRIMARY KEY,
+    patient_profile_id INT REFERENCES patient_profile(id),
+    doctor_profile_id INT REFERENCES doctor_profile(id),
+    department_id INT REFERENCES department(id),
+
+    weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 5),
+    timeslot time_slot NOT NULL,
+    registration_time TIMESTAMP NOT NULL DEFAULT NOW(),
+    status VARCHAR(20) NOT NULL
+);
 ```
 
-doctor_department_schedule // 医生-科室-排班表
+doctor_department_schedule // 医生-科室-排班表（科室值班表）
 
 ```sql
-id SERIAL PRIMARY KEY,
-doctor_user_id INT REFERENCES doctor_user(id),
-department_id INT REFERENCES department(id),
-weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 5)
-timeslot time_slot NOT NULL,
+CREATE TABLE doctor_department_schedule (
+    id SERIAL PRIMARY KEY,
+    doctor_profile_id INT REFERENCES doctor_profile(id),
+    department_id INT REFERENCES department(id),
+    weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 5),
+    timeslot time_slot NOT NULL,
 
-UNIQUE (doctor_user_id, weekday, timeslot)
+    UNIQUE (doctor_profile_id, weekday, timeslot)
+);
 ```
 
+---
+
+```
+关于医生科室表我并不打算设计，因为我设计的就是一个医生仅仅是一个科室的人
+作为拓展留下
 doctor_department // 医生-科室表
 
-```sql
+sql
 id SERIAL PRIMARY KEY,
 doctor_user_id INT REFERENCES doctor_user(id),
 department_id INT REFERENCES department(id),
 UNIQUE (doctor_user_id, department_id)
+
 ```
+
+---
+CREATE TYPE gender_enum AS ENUM ('male', 'female');
 
 ![ER图](./resources/img/ER图-test.png)
 请大家为我补充
@@ -177,3 +204,11 @@ UNIQUE (doctor_user_id, department_id)
 │         │         └── resources
 │                   └── application.properties
 ```
+
+# todolist
+- [x]  init.sql
+- [ ] 初始化，添加依赖
+- 配置application.yml
+- 实体类
+- 接口
+- 统一登陆

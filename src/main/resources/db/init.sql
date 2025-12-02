@@ -1,0 +1,204 @@
+-- ==========================================
+-- Drop existing tables (avoid conflicts)
+-- ==========================================
+DROP TABLE IF EXISTS doctor_department_schedule CASCADE;
+DROP TABLE IF EXISTS patient_doctor_registration CASCADE;
+DROP TABLE IF EXISTS doctor_profile CASCADE;
+DROP TABLE IF EXISTS patient_profile CASCADE;
+DROP TABLE IF EXISTS app_user CASCADE;
+DROP TABLE IF EXISTS department CASCADE;
+
+-- ==========================================
+-- Drop ENUM types
+-- ==========================================
+DROP TYPE IF EXISTS gender_enum CASCADE;
+DROP TYPE IF EXISTS time_slot CASCADE;
+
+-- ==========================================
+-- ENUM Definitions
+-- ==========================================
+CREATE TYPE gender_enum AS ENUM ('male', 'female');
+
+CREATE TYPE time_slot AS ENUM (
+    'AM1', 'AM2', 'AM3', 'AM4',
+    'PM1', 'PM2', 'PM3', 'PM4'
+);
+
+-- ==========================================
+-- User Table (Unified Login Table)
+-- ==========================================
+CREATE TABLE app_user (
+                          id SERIAL PRIMARY KEY,
+                          username VARCHAR(100) UNIQUE NOT NULL,
+                          password VARCHAR(255) NOT NULL,
+                          role VARCHAR(20) NOT NULL,     -- 'PATIENT' / 'DOCTOR' / 'ADMIN'
+                          created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ==========================================
+-- Department Table
+-- ==========================================
+CREATE TABLE department (
+                            id SERIAL PRIMARY KEY,
+                            department_name VARCHAR(100) NOT NULL
+);
+
+-- Insert basic departments
+INSERT INTO department (department_name) VALUES
+                                             ('Internal Medicine'),
+                                             ('Surgical');
+
+-- ==========================================
+-- Patient Profile
+-- ==========================================
+CREATE TABLE patient_profile (
+                                 id SERIAL PRIMARY KEY,
+                                 user_id INT UNIQUE NOT NULL REFERENCES app_user(id),
+
+                                 id_card VARCHAR(18) UNIQUE NOT NULL,
+                                 name VARCHAR(100) NOT NULL,
+                                 phone_number VARCHAR(15) NOT NULL UNIQUE,
+                                 age INT,
+                                 gender gender_enum NOT NULL
+);
+
+-- ==========================================
+-- Doctor Profile
+-- ==========================================
+CREATE TABLE doctor_profile (
+                                id SERIAL PRIMARY KEY,
+                                user_id INT UNIQUE NOT NULL REFERENCES app_user(id),
+
+                                doctor_id VARCHAR(10) UNIQUE NOT NULL,
+                                name VARCHAR(100) NOT NULL,
+                                age INT,
+                                gender gender_enum NOT NULL,
+                                title VARCHAR(100),
+
+                                department_id INT REFERENCES department(id)
+);
+
+-- ==========================================
+-- Registration Table
+-- ==========================================
+CREATE TABLE patient_doctor_registration (
+                                             id SERIAL PRIMARY KEY,
+                                             patient_profile_id INT REFERENCES patient_profile(id),
+                                             doctor_profile_id INT REFERENCES doctor_profile(id),
+                                             department_id INT REFERENCES department(id),
+
+                                             weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 5),
+                                             timeslot time_slot NOT NULL,
+                                             registration_time TIMESTAMP NOT NULL DEFAULT NOW(),
+                                             status VARCHAR(20) NOT NULL
+);
+
+-- ==========================================
+-- Doctor Department Schedule
+-- ==========================================
+CREATE TABLE doctor_department_schedule (
+                                            id SERIAL PRIMARY KEY,
+                                            doctor_profile_id INT REFERENCES doctor_profile(id),
+                                            department_id INT REFERENCES department(id),
+                                            weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 5),
+                                            timeslot time_slot NOT NULL,
+
+                                            UNIQUE (doctor_profile_id, weekday, timeslot)
+);
+
+-- ==========================================
+-- Insert Example Data
+-- ==========================================
+
+-- ADMIN account
+INSERT INTO app_user (username, password, role)
+VALUES ('admin', '123456', 'ADMIN');
+
+-- ==========================================
+-- PATIENTS (3 examples)
+-- ==========================================
+
+-- Patient 1
+INSERT INTO app_user (username, password, role)
+VALUES ('patient001', '123456', 'PATIENT');
+INSERT INTO patient_profile (user_id, id_card, name, phone_number, age, gender)
+VALUES (
+           (SELECT id FROM app_user WHERE username='patient001'),
+           '110101200001015555',
+           'Alice Zhang',
+           '13800000001',
+           23,
+           'female'
+       );
+
+-- Patient 2
+INSERT INTO app_user (username, password, role)
+VALUES ('patient002', '123456', 'PATIENT');
+INSERT INTO patient_profile (user_id, id_card, name, phone_number, age, gender)
+VALUES (
+           (SELECT id FROM app_user WHERE username='patient002'),
+           '110101199905203333',
+           'Bob Li',
+           '13800000002',
+           25,
+           'male'
+       );
+
+-- Patient 3
+INSERT INTO app_user (username, password, role)
+VALUES ('patient003', '123456', 'PATIENT');
+INSERT INTO patient_profile (user_id, id_card, name, phone_number, age, gender)
+VALUES (
+           (SELECT id FROM app_user WHERE username='patient003'),
+           '110101199802105666',
+           'Charlie Wang',
+           '13800000003',
+           26,
+           'male'
+       );
+
+-- ==========================================
+-- DOCTORS (3 examples)
+-- ==========================================
+
+-- Doctor 1 (Internal Medicine)
+INSERT INTO app_user (username, password, role)
+VALUES ('doc001', '123456', 'DOCTOR');
+INSERT INTO doctor_profile (user_id, doctor_id, name, age, gender, title, department_id)
+VALUES (
+           (SELECT id FROM app_user WHERE username='doc001'),
+           '00000001',
+           'Dr. John Chen',
+           40,
+           'male',
+           'Attending Physician',
+           1  -- Internal Medicine
+       );
+
+-- Doctor 2 (Surgical)
+INSERT INTO app_user (username, password, role)
+VALUES ('doc002', '123456', 'DOCTOR');
+INSERT INTO doctor_profile (user_id, doctor_id, name, age, gender, title, department_id)
+VALUES (
+           (SELECT id FROM app_user WHERE username='doc002'),
+           '00000002',
+           'Dr. Emily Sun',
+           35,
+           'female',
+           'Surgeon',
+           2  -- Surgical
+       );
+
+-- Doctor 3 (Internal Medicine)
+INSERT INTO app_user (username, password, role)
+VALUES ('doc003', '123456', 'DOCTOR');
+INSERT INTO doctor_profile (user_id, doctor_id, name, age, gender, title, department_id)
+VALUES (
+           (SELECT id FROM app_user WHERE username='doc003'),
+           '00000003',
+           'Dr. Kevin Zhou',
+           45,
+           'male',
+           'Chief Physician',
+           1  -- Internal Medicine
+       );
