@@ -62,15 +62,18 @@
 
 那么我们就需要有如下的一些数据库设计：
 
+CREATE TYPE gender_enum AS ENUM ('male', 'female');
+
 patient_user
 
 ```sql
 id SERIAL PRIMARY KEY,
+id_card VARCHAR(18) UNIQUE NOT NULL,
 name VARCHAR(100) NOT NULL,
 password VARCHAR(255) NOT NULL,
-phone_number VARCHAR(15) NOT NULL UNIQUE
+phone_number VARCHAR(15) NOT NULL UNIQUE,
 age INT,
-gender VARCHAR(10)
+gender gender_enum NOT NULL
 ```
 
 doctor_user
@@ -80,11 +83,11 @@ id SERIAL PRIMARY KEY,
 name VARCHAR(100) NOT NULL,
 password VARCHAR(255) NOT NULL,
 age INT,
-gender VARCHAR(10),
+gender gender_enum NOT NULL,
 title VARCHAR(100),
 ```
 
-Department
+department
 
 ```sql
 id SERIAL PRIMARY KEY,
@@ -98,7 +101,15 @@ id SERIAL PRIMARY KEY,
 password VARCHAR(255) NOT NULL,
 ```
 
-此外我还认为此时就应该有两个表：
+为了详细时间这一块，我们应该将写一个时间槽，方便后续扩展
+time_slot
+
+```sql
+CREATE TYPE time_slot AS ENUM (
+    'AM1', 'AM2', 'AM3', 'AM4',
+    'PM1', 'PM2', 'PM3', 'PM4'
+);
+```
 
 patient_doctor_registration
 
@@ -106,8 +117,11 @@ patient_doctor_registration
 id SERIAL PRIMARY KEY,
 patient_user_id INT REFERENCES patient_user(id),
 doctor_user_id INT REFERENCES doctor_user(id),
-registration_time TIMESTAMP NOT NULL,
-status VARCHAR(20) NOT NULL
+department_id INT REFERENCES department(id),
+weekday INT NOT NULL,
+timeslot time_slot NOT NULL,
+registration_time TIMESTAMP NOT NULL DEFAULT NOW(),
+status VARCHAR(20) NOT NULL // PENDING/SUCCESS/CANCELLED/FINISHED
 ```
 
 doctor_department_schedule
@@ -115,8 +129,11 @@ doctor_department_schedule
 ```sql
 id SERIAL PRIMARY KEY,
 doctor_user_id INT REFERENCES doctor_user(id),
-department_id INT REFERENCES Department(id),
-schedule_time TIMESTAMP NOT NULL
+department_id INT REFERENCES department(id),
+weekday INT NOT NULL,          -- 1=周一 ... 5=周五
+timeslot time_slot NOT NULL,
+
+UNIQUE (doctor_user_id, weekday, timeslot)
 ```
 
 doctor_department
@@ -124,109 +141,12 @@ doctor_department
 ```sql
 id SERIAL PRIMARY KEY,
 doctor_user_id INT REFERENCES doctor_user(id),
-department_id INT REFERENCES Department(id)
+department_id INT REFERENCES department(id),
+UNIQUE (doctor_user_id, department_id)
 ```
 
 通过AI的提示，我认为我们再增加一个doctor_department_schedule就可以顺利的实现这个功能，排班的time我们可以
-设置为枚举类型，周一到周五，上午1-4，下午1-4，就相当于5x8的这么一个时间设置，或者设置为5x2x2。这样就okk。具体时间
-设置可以依靠ai的智慧。
-
-
-夜已深。健康这一块，所以写到这里，后续继续开展。
+设置为枚举类型，周一到周五，上午1-4，下午1-4，就相当于5x8的这么一个时间设置。
 
 ![ER图](./resources/img/ER图-test.png)
 请大家为我补充
-
-# 后话
-2. 核心业务实体（必须实现）
-   最终确定版的结构（按我们讨论后的最佳版本）
-
-
-
-2.1 三类用户“分表”登录体系
-✔ patient_user（病人账号 + 病人信息）
-病人可自助注册。
-
-> 注明：王滔想法  
-> 病人应该只有一个工作，就是挂号。前期对于病人的工作是可以简单的设计为他能看到医生值班信息，并且提出挂号申请
-> 到这里就可以结束了是一个暂时简单的活
-
-字段包含：
-- id
-- name
-- password
-- phone_number
-- age
-- gender
-- // 后面的功能和东西属于附加的，并非核心功能，后续开发实现
-
-✔ doctor_user（医生账号 + 医生信息）
-医生账号由管理员创建，不可自注册。
-医生可能也是病人，但通过注册 patient_user 达成。
-
-字段包含：
-
-id
-
-username
-
-password
-
-doctor_id_card
-
-name
-
-title
-
-phone
-
-description
-
-✔ admin_user（管理员账号）
-管理员账号必须后台创建，不可自注册。
-
-字段包含：
-
-id
-
-username
-
-password
-
-name
-
-2.2 科室（疾病种类）
-disease_type
-
-id
-
-name
-
-code
-
-description
-
-2.3 医生与科室的一对多关系
-doctor_disease_type
-
-id
-
-doctor_user_id
-
-disease_type_id
-
-2.4 挂号记录
-registration
-
-id
-
-patient_user_id
-
-doctor_user_id
-
-disease_type_id
-
-registration_time
-
-status (PENDING/SUCCESS/CANCELLED/FINISHED)
-
