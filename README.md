@@ -238,7 +238,7 @@ CREATE TYPE gender_enum AS ENUM ('male', 'female');
 # todolist
 - [x]  init.sql
 - [x] 初始化，添加依赖
-- 配置application.yml
-- 实体类
+- [x] 配置application.yml
+- [x] 实体类
 - 接口
 - 统一登陆
