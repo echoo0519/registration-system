@@ -53,13 +53,84 @@
 3. 病人的行为是简单的，两个地方，1. 注册，病人通过提供身份证信息和姓名性别，年龄等相关信息（本质上这些如果通过
 提供身份证的情况下是可以自然读取的，总的来说就是提供身份证信息和手机号就可以注册账号），然后病人进入挂号页面开始挂号
 挂号功能需要先选择科室，然后病人选择查看这周的排班情况，点击申请，挂号。
-3. 对于医生来说，医生会看到自己的值班情况，以及每天的工作，一个医生的页面应该就两个东西1. 今天自己的
+4. 对于医生来说，医生会看到自己的值班情况，以及每天的工作，一个医生的页面应该就两个东西1. 今天自己的
 工作安排，排班排到的病人，他会看到挂号病人相关的全部信息；2. 自己的排班情况，也就是这一周的个工作情况，有可能
-自己周一上班，周二就不上班这样。（后续可以增加，比如说请假申请、换班申请等等，但是这是后话）
-4. 系统中有一个类似root的管理员，他登陆之后有一个功能界面，在功能界面中他能选择对应的科室，然后可以为对应科室进行
+自己周一上班，周二就不上班这样。（后续可以增加，比如说请假申请、换班申请等等，但是这是后话） 
+5. 系统中有一个类似root的管理员，他登陆之后有一个功能界面，在功能界面中他能选择对应的科室，然后可以为对应科室进行
 管理，他能看到相关科室的全部医生信息。然后对每个具体的科室他有一个排班功能，他能看到虚拟出的周排班表。然后他可以用类似
 填充的方式，将医生和科室排班对应起来。
-5. 关于这里我有一个疑问，就是
+
+那么我们就需要有如下的一些数据库设计：
+
+patient_user
+
+```sql
+id SERIAL PRIMARY KEY,
+name VARCHAR(100) NOT NULL,
+password VARCHAR(255) NOT NULL,
+phone_number VARCHAR(15) NOT NULL UNIQUE
+age INT,
+gender VARCHAR(10)
+```
+
+doctor_user
+
+```sql
+id SERIAL PRIMARY KEY,
+name VARCHAR(100) NOT NULL,
+password VARCHAR(255) NOT NULL,
+age INT,
+gender VARCHAR(10),
+title VARCHAR(100),
+```
+
+Department
+
+```sql
+id SERIAL PRIMARY KEY,
+department_name VARCHAR(100) NOT NULL,
+```
+
+admin_user
+
+```sql
+id SERIAL PRIMARY KEY,
+password VARCHAR(255) NOT NULL,
+```
+
+此外我还认为此时就应该有两个表：
+
+patient_doctor_registration
+
+```sql
+id SERIAL PRIMARY KEY,
+patient_user_id INT REFERENCES patient_user(id),
+doctor_user_id INT REFERENCES doctor_user(id),
+registration_time TIMESTAMP NOT NULL,
+status VARCHAR(20) NOT NULL
+```
+
+doctor_department_schedule
+
+```sql
+id SERIAL PRIMARY KEY,
+doctor_user_id INT REFERENCES doctor_user(id),
+department_id INT REFERENCES Department(id),
+schedule_time TIMESTAMP NOT NULL
+```
+
+doctor_department
+
+```sql
+id SERIAL PRIMARY KEY,
+doctor_user_id INT REFERENCES doctor_user(id),
+department_id INT REFERENCES Department(id)
+```
+
+通过AI的提示，我认为我们再增加一个doctor_department_schedule就可以顺利的实现这个功能，排班的time我们可以
+设置为枚举类型，周一到周五，上午1-4，下午1-4，就相当于5x8的这么一个时间设置，或者设置为5x2x2。这样就okk。具体时间
+设置可以依靠ai的智慧。
+
 
 夜已深。健康这一块，所以写到这里，后续继续开展。
 
