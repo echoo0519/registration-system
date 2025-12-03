@@ -77,25 +77,38 @@ psql -U postgres -d registration_system -f "src/main/resources/db/init.sql"
 我们应该先设想自己想要做出来的效果。阐述一下，然后对照相应的地方做相应的功能以及模块的划分
 这样才合适。
 
-1. 有三个登陆账户：病人（patient）、医生（doctor）、管理员（admin）。但是这只是登陆账户并不是ER图
-的全部。还有科室等关系实体是我们还没有分离出来的
-2. 我们会架空一个时间体，也就是我们虚拟出了一个周的循环。如果一个病人开始尝试登陆，然后他
-先选择相应的科室，我们可以先简单的只设置外科 + 内科，然后他能看到周一到周五的排班情况
-关于排班，我们将一天拆分为8个阶段，分别为上午1到下午4。他对应不同的时段，但是时段这些可以后续
-继续更进，暂时这样设想。然后每个医生每天有16个号，均匀分。然后每个人病人申请，缴费，后面通过。
-3. 病人的行为是简单的，两个地方，1. 注册，病人通过提供身份证信息和姓名性别，年龄等相关信息（本质上这些如果通过
-提供身份证的情况下是可以自然读取的，总的来说就是提供身份证信息和手机号就可以注册账号），然后病人进入挂号页面开始挂号
-挂号功能需要先选择科室，然后病人选择查看这周的排班情况，点击申请，挂号。
-4. 对于医生来说，医生会看到自己的值班情况，以及每天的工作，一个医生的页面应该就两个东西1. 今天自己的
-工作安排，排班排到的病人，他会看到挂号病人相关的全部信息；2. 自己的排班情况，也就是这一周的个工作情况，有可能
-自己周一上班，周二就不上班这样。（后续可以增加，比如说请假申请、换班申请等等，但是这是后话） 
-5. 系统中有一个类似root的管理员，他登陆之后有一个功能界面，在功能界面中他能选择对应的科室，然后可以为对应科室进行
-管理，他能看到相关科室的全部医生信息。然后对每个具体的科室他有一个排班功能，他能看到虚拟出的周排班表。然后他可以用类似
-填充的方式，将医生和科室排班对应起来。
+1. 有三个登陆账户：病人（patient）、医生（doctor）、管理员（admin）。但是这只是登陆账户并不是ER图的全部。还有科室等关系实体是我们还没有分离出来的
+2. 我们会架空一个时间体，也就是我们虚拟出了一个周的循环。如果一个病人开始尝试登陆，然后他先选择相应的科室，我们可以先简单的只设置外科 + 内科，选择科室之后他可以看到这个科室下有的疾病，然后他选择他需要去看的疾病，为了明确，我们设置疾病和科室关系如下：
+  1. 内科：
+    1. 心脏病
+    2. 肝脏病
+    3. 脾病
+    4. 胃病
+    5. 肾病
+
+  2. 外科：
+    1. 手足病
+    2. 胸外科
+    3. 关节病
+    4. 烧伤病
+    5. 整形
+
+
+3. 关于排班，我们将一天拆分为8个阶段，分别为上午1到下午4。他对应不同的时段，但是时段这些可以后续继续更进，暂时这样设想。然后每个医生每天有16个号，均匀分。然后每个人病人申请，缴费，后面通过。
+
+4. 病人的行为是简单的，两个地方，1. 注册，病人通过提供身份证信息和姓名性别，年龄等相关信息（本质上这些如果通过提供身份证的情况下是可以自然读取的，总的来说就是提供身份证信息和手机号就可以注册账号），然后病人进入挂号页面开始挂号挂号功能需要先选择科室，然后选择相应的疾病，然后病人选择查看这周的排班情况，点击申请，挂号。
+
+1. 对于医生来说，医生会看到自己的值班情况，以及每天的工作，一个医生的页面应该就两个东西
+  1. 今天自己的工作安排todo，排班排到的病人，他会看到挂号病人相关的全部信息；
+  2. 自己的排班情况，也就是这一周的个工作情况，有可能自己周一上班，周二就不上班这样。（后续可以增加，比如说请假申请、换班申请等等，但是这是后话） 
+2. 系统中有一个类似root的管理员，他有三个工作板块-三个功能界面
+  1. 病人管理界面：可以对病人信息进行查询，对病人增删改查
+  2. 医生管理界面：对医生增删改查，增加医生，“删除”医生，更改医生科室，更改医生对应疾病
+  3. 排班管理：点击相应科室，然后可以对这个科室进行排班管理，也就是对排班表进行修改
 
 那么我们就需要有如下的一些数据库设计：
 
---- 
+---
 
 统一的用户表
 
@@ -105,7 +118,8 @@ CREATE TABLE app_user (
     username VARCHAR(100) UNIQUE NOT NULL,
     password VARCHAR(255) NOT NULL,
     role VARCHAR(20) NOT NULL,     -- 'PATIENT' / 'DOCTOR' / 'ADMIN'
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 ```
 
@@ -120,7 +134,8 @@ CREATE TABLE patient_profile (
     name VARCHAR(100) NOT NULL,
     phone_number VARCHAR(15) NOT NULL UNIQUE,
     age INT,
-    gender gender_enum NOT NULL
+    gender gender_enum NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 ```
 
@@ -137,7 +152,8 @@ CREATE TABLE doctor_profile (
     gender gender_enum NOT NULL,
     title VARCHAR(100),
 
-    department_id INT REFERENCES department(id)
+    department_id INT REFERENCES department(id),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE
 );
 ```
 
@@ -147,6 +163,29 @@ CREATE TABLE doctor_profile (
 CREATE TABLE department (
     id SERIAL PRIMARY KEY,
     department_name VARCHAR(100) NOT NULL
+);
+```
+
+疾病表
+
+```sql
+CREATE TABLE disease (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    code VARCHAR(50) UNIQUE,
+    description TEXT,
+    department_id INT NOT NULL REFERENCES department(id)
+);
+```
+
+医生疾病表
+
+```sql
+CREATE TABLE doctor_disease (
+    id SERIAL PRIMARY KEY,
+    doctor_profile_id INT NOT NULL REFERENCES doctor_profile(id),
+    disease_id INT NOT NULL REFERENCES disease(id),
+    UNIQUE (doctor_profile_id, disease_id)
 );
 ```
 
@@ -164,12 +203,13 @@ CREATE TYPE time_slot AS ENUM (
 ```sql
 CREATE TABLE patient_doctor_registration (
     id SERIAL PRIMARY KEY,
-    patient_profile_id INT REFERENCES patient_profile(id),
-    doctor_profile_id INT REFERENCES doctor_profile(id),
-    department_id INT REFERENCES department(id),
+    patient_profile_id INT NOT NULL REFERENCES patient_profile(id),
+    doctor_profile_id INT NOT NULL REFERENCES doctor_profile(id),
 
+    disease_id INT NOT NULL REFERENCES disease(id), -- 🔁 换成挂具体“疾病”
     weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 5),
     timeslot time_slot NOT NULL,
+
     registration_time TIMESTAMP NOT NULL DEFAULT NOW(),
     status VARCHAR(20) NOT NULL
 );
@@ -184,24 +224,9 @@ CREATE TABLE doctor_department_schedule (
     department_id INT REFERENCES department(id),
     weekday INT NOT NULL CHECK (weekday BETWEEN 1 AND 5),
     timeslot time_slot NOT NULL,
-
+    
     UNIQUE (doctor_profile_id, weekday, timeslot)
 );
-```
-
----
-
-```
-关于医生科室表我并不打算设计，因为我设计的就是一个医生仅仅是一个科室的人
-作为拓展留下
-doctor_department // 医生-科室表
-
-sql
-id SERIAL PRIMARY KEY,
-doctor_user_id INT REFERENCES doctor_user(id),
-department_id INT REFERENCES department(id),
-UNIQUE (doctor_user_id, department_id)
-
 ```
 
 ---
@@ -250,5 +275,5 @@ CREATE TYPE gender_enum AS ENUM ('male', 'female');
 - [x] 初始化，添加依赖
 - [x] 配置application.yml
 - [x] 实体类
-- 接口
-- 统一登陆
+- [x] 接口
+- [x] 统一登陆测试
