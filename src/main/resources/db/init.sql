@@ -13,7 +13,7 @@ DROP TABLE IF EXISTS department CASCADE;
 -- ==========================================
 -- Drop ENUM types (统一改为 VARCHAR+CHECK)
 -- ==========================================
-DROP TYPE IF EXISTS gender_enum CASCADE;
+-- DROP TYPE IF EXISTS gender_enum CASCADE;
 DROP TYPE IF EXISTS time_slot CASCADE;
 
 -- ==========================================
